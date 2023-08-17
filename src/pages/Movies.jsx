@@ -1,76 +1,54 @@
-import { useState, useEffect } from 'react';
-import { useSearchParams, useLocation } from 'react-router-dom';
-import DefaultImg from '../images/noImageV.jpg';
-import { getMoveName } from '../serviceAPI/serviceAPI';
-import {Titl, Form, Input, Btn, FilmList, FilmItem, FilmLink, Img, Name} from '../styled/styled';
+import { Container } from 'components/App.styled';
+import { Loader } from 'components/Loader/Loader';
+import { MovieList } from 'components/MovieList/MovieList';
+import { Page404 } from 'components/Page404/Page404';
+import { SearchForm } from 'components/SearchForm/SearchForm';
+import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { ToastContainer, toast } from 'react-toastify';
+import { gethMoviesByName } from 'services/api';
 
 const Movies = () => {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchMove, setSearchMove] = useState([]);
+    const [movies, setMovies] = useState([]);
+    const [first, setFirst] = useState(true);
+    const [error, setError] = useState(null);
+    const [isLoading, setIsLoading] = useState(false);
+    const [searchParams, setSearchParams] = useSearchParams();
+    const page = 1;
 
-  const location = useLocation();
-  const [searchParams, setSearchParams] = useSearchParams();
-  const searchMoveName = searchParams.get('query') ?? '';
+    useEffect(() => {
+        const query = searchParams.get('query');
+        if (!query) return;
+        setIsLoading(true);
+        gethMoviesByName(query, page)
+            .then(data => {
+                setMovies(data.results);
+            })
+            .catch(err => {
+                setError(err.message);
+                toast(err.message);
+            })
+            .finally(() => {
+                setIsLoading(false);
+                setFirst(false);
+            });
+    }, [searchParams]);
 
-  const handleSearch = event => {
-    setSearchQuery(event.target.value.toLowerCase());
-  };
-
-  const handleSubmit = event => {
-    event.preventDefault();
-    searchQuery.trim() === ''
-    ? alert('enter the name of the movie to search') 
-    : setSearchParams({ query: searchQuery });   
-  };
-
-  useEffect(() => {
-    const trendingMoves = async () => {
-      try {
-        const data = await getMoveName(searchMoveName);
-        const newMovis = data.data.results;
-        setSearchMove(newMovis);
-      } catch (error) {
-        console.error('error');
-      }
+    const onSubmit = query => {
+        setSearchParams({ query, page });
     };
-    trendingMoves();
-  }, [searchMoveName]);
 
-  return (
-    <>    
-        <Titl>Search Films</Titl>
-        <Form onSubmit={handleSubmit}>
-          <Input
-            type="text"
-            value={searchQuery}
-            onChange={handleSearch}
-            placeholder="Search movies"
-          />
-          <Btn type="submit">Search</Btn>
-        </Form>
-     
-      <FilmList>
-        {searchMove &&
-          searchMove.map(({ id, title, poster_path }) => (
-            <FilmItem key={id}>
-              <FilmLink key={id} to={`/movies/${id}`} state={{ from: location }}>
-                <Img
-                  src={
-                    poster_path
-                      ? `https://image.tmdb.org/t/p/w500/${poster_path}`
-                      : DefaultImg
-                  }
-                  alt={title}
-                  width="200"
-                  height="auto"
-                />
-                <Name>{title}</Name>
-              </FilmLink>
-            </FilmItem>
-          ))}
-      </FilmList>
-    </>
-  );
+    return (
+        <section>
+            <Container>
+                {isLoading && <Loader />}
+                <SearchForm onSubmit={onSubmit} />
+                {movies && <MovieList movies={movies} />}
+                {!first && movies.length < 1 && <Page404 />}
+                {error && <ToastContainer />}
+            </Container>
+        </section>
+    );
 };
 
 export default Movies;

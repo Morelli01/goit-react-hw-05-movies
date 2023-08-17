@@ -1,48 +1,66 @@
-import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { getMoveCast } from '../../serviceAPI/serviceAPI';
-import { CatsList, CatsItem } from '../../styled/styled';
-import DefaultImg from '../../images/noImageV.jpg';
+import { CastElement, CastGrid, CastPhoto, CastTitle } from './Cast.styled';
+import { useEffect, useState } from 'react';
+import { gethMovieDetails } from 'services/api';
+import { Loader } from 'components/Loader/Loader';
+import noPoster from '../../images/no-poster.jpg';
+import { ToastContainer, toast } from 'react-toastify';
 
-const Cast = () => {
-  const { movieId } = useParams();
+export const Cast = () => {
+    const { movieId } = useParams();
+    const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState([]);
+    const [cast, setCast] = useState([]);
+    const IMAGES_BASE_URL = 'https://image.tmdb.org/t/p/w500/';
 
-  const [movieCats, setMovieCats] = useState([]);
+    useEffect(() => {
+        if (!movieId) return;
+        setIsLoading(true);
+        gethMovieDetails(movieId, '/credits')
+            .then(data => {
+                setCast(data.cast);
+            })
+            .catch(err => {
+                setError(err.message);
+                toast(err.message);
+            })
+            .finally(() => {
+                setIsLoading(false);
+            });
+    }, [movieId]);
 
-  useEffect(() => {
-    const catsMoves = async () => {
-      try {
-        const data = await getMoveCast(movieId);
-        const moveCats = data.data.cast;
-        setMovieCats(moveCats);
-      } catch (error) {
-        console.error('error');
-      }
-    };
-    catsMoves();
-  }, [movieId]);
-
-  return (
-    <CatsList>
-       {movieCats.length < 1 ? (
-        <h2>I'm sorry, but I don't have any information casts </h2>
-      ) : (movieCats.map(({ id, profile_path, character, name }) => (
-          <CatsItem key={id}>
-            <img
-              src={profile_path
-                  ? `https://image.tmdb.org/t/p/w500/${profile_path}`
-                  : DefaultImg
-              }
-              alt={name}
-              width="150"
-              height="auto"
-            />
-            <p>{name}</p>
-            <p>Character: {character}</p>
-          </CatsItem>
-        )))}
-    </CatsList>
-  );
+    return (
+        <>
+            {isLoading && <Loader />}
+            {cast.length > 0 && (
+                <>
+                    <CastTitle>Cast</CastTitle>
+                    <CastGrid>
+                        {cast?.map(
+                            ({ credit_id, profile_path, name, character }) => (
+                                <CastElement key={credit_id}>
+                                    <CastPhoto
+                                        src={
+                                            profile_path
+                                                ? IMAGES_BASE_URL + profile_path
+                                                : noPoster
+                                        }
+                                        alt="_"
+                                    />
+                                    <p>
+                                        <b>{name}</b>
+                                    </p>
+                                    <p>{character}</p>
+                                </CastElement>
+                            )
+                        )}
+                    </CastGrid>
+                </>
+            )}
+            {cast.length < 1 && (
+                <CastTitle>Sorry, no cast information available.</CastTitle>
+            )}
+            {error && <ToastContainer />}
+        </>
+    );
 };
-
-export default Cast;

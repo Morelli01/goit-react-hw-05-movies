@@ -1,93 +1,54 @@
-import { useEffect, useState, useRef, Suspense } from 'react';
-import { useParams, Outlet, useLocation } from 'react-router-dom';
-import { getMoveInfo } from '../serviceAPI/serviceAPI';
-import DefaultImg from '../images/noImageH.jpg';
-import {
-  Button,
-  Content,
-  InfoList,
-  InfoItem,
-  InfoTitle,
-  Image,
-  ListAdd,
-  ItemAdd,
-  LinkAdd,
-} from '../styled/styled';
+import { Container } from 'components/App.styled';
+import { DetailList } from 'components/DetailList/DetailList';
+import { GoBackBtn } from 'components/GoBackBtn/GoBackBtn';
+import { Loader } from 'components/Loader/Loader';
+import { MovieInfo } from 'components/MovieInfo/MovieInfo';
+import { Page404 } from 'components/Page404/Page404';
+import { Suspense, useEffect, useRef, useState } from 'react';
+import { Outlet, useLocation, useParams } from 'react-router-dom';
+import { gethMovieDetails } from 'services/api';
 
 const MovieDetails = () => {
-  const { movieId } = useParams();
+    const [movie, setMovie] = useState(null);
+    const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState(null);
+    const { movieId } = useParams();
 
-  const [moveInfo, setMoveInfo] = useState([]);
+    const location = useLocation();
+    const goBackLink = useRef(location?.state?.from ?? '/');
 
-  const location = useLocation();
-  const buttonBack = useRef(location.state?.from ?? '/');
+    useEffect(() => {
+        setIsLoading(true);
+        gethMovieDetails(movieId, '')
+            .then(data => {
+                setMovie(data);
+            })
+            .catch(err => {
+                setError(err.message);
+            })
+            .finally(() => {
+                setIsLoading(false);
+            });
+    }, [movieId]);
 
-  useEffect(() => {
-    const infoMoves = async () => {
-      try {
-        const data = await getMoveInfo(movieId);
-        const newMov = data.data;
-        setMoveInfo(newMov);
-      } catch (error) {
-        console.error('error');
-      }
-    };
-    infoMoves();
-  }, [movieId]);
-
-  const { poster_path, title, vote_average, genres, overview } = moveInfo;
-
-  return (
-    <>
-      <Button to={buttonBack.current}>Back to collection</Button>
-      <Content>
-        <Image
-          src={
-            poster_path
-              ? `https://image.tmdb.org/t/p/w500/${poster_path}`
-              : DefaultImg
-          }
-          alt={title}
-          width="500"
-          height="auto"
-        />
-        <InfoList>
-          <InfoItem>
-            <InfoTitle>{title}</InfoTitle>
-            <p>Users Score: {(vote_average * 10).toFixed(0)}%</p>
-          </InfoItem>
-          <InfoItem>
-            <h2>Overview</h2>
-            <p>{overview}</p>
-          </InfoItem>
-          <InfoItem>
-            <h2>Genres</h2>
-            {genres && (
-              <ul>
-                {genres.map((genre, index) => (
-                  <li key={index}>{genre.name}</li>
-                ))}
-              </ul>
-            )}
-          </InfoItem>
-          <hr />
-          <h3>Additional information</h3>
-          <ListAdd>
-            <ItemAdd>
-              <LinkAdd to="cast">Cast</LinkAdd>
-            </ItemAdd>
-            <ItemAdd>
-              <LinkAdd to="reviews">Reviews</LinkAdd>
-            </ItemAdd>
-          </ListAdd>
-        </InfoList>
-      </Content>
-      <hr />
-      <Suspense fallback={<div>Loading...</div>}>
-        <Outlet />
-      </Suspense>
-    </>
-  );
+    return (
+        <section>
+            {isLoading && <Loader />}
+            <Container>
+                <GoBackBtn path={goBackLink}>Go back</GoBackBtn>
+                {movie && (
+                    <>
+                        <MovieInfo {...movie} />
+                        <DetailList state={{ from: location }} />
+                        <Suspense>
+                            <Outlet />
+                        </Suspense>
+                    </>
+                )}
+                {error && <Page404 />}
+            </Container>
+        </section>
+    );
 };
 
 export default MovieDetails;
